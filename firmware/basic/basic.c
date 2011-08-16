@@ -12,6 +12,13 @@ void rbInit() {
     // TODO FIXME more power init needed ? chrg + volt input ?
     // enable external vcc
     gpioSetDir(RB_PWR_GOOD, gpioDirection_Output);
+    for (int i=0; i< 100; i++){
+
+    	for (int j=0; j<100; j++){
+    		 if (j>i) gpioSetValue (RB_PWR_GOOD, 1); else
+    			 gpioSetValue (RB_PWR_GOOD, 0);
+    	}
+    }
     gpioSetValue (RB_PWR_GOOD, 0); 
 
     // Disable USB Connect (we don't want USB by default)
