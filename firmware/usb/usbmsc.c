@@ -1,6 +1,7 @@
 #include "core/rom_drivers.h"
 #include "core/gpio/gpio.h"
 #include "filesystem/at45db041d.h"
+#include "filesystem/ff.h"
 
 #include "lcd/render.h"
 #include "lcd/display.h"
@@ -97,5 +98,6 @@ void USB_IRQHandler() {
 void usbMSCOff(void) {
   (*rom)->pUSBD->connect(false);     /* USB Disconnect */
   usbMSCenabled&=~USB_MSC_ENABLEFLAG;
+  fsReInit();
 }
 
