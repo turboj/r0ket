@@ -62,7 +62,6 @@ the_queue
 work_queue
 #config
 readFile
-getFiles
 selectFile
 writeFile
 saveConfig
@@ -117,3 +116,4 @@ uint8ptouint32
 #o_set_shader
 #o_identity
 #o_transform
+getFiles
