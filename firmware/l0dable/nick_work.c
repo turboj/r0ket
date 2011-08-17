@@ -62,6 +62,21 @@ uint8_t lk_in1 = 0x00;
 uint16_t lk_ticks = 0x0000;
 uint8_t lk_piezo_toggle = 0x00;
 
+struct note {
+    int freq;
+    int duration;
+};
+struct note  melody[] = {
+        {1000, 1000},
+        {2000,  300},
+        {3000,  800},
+        { 500, 1000},
+        { 300, 1000}
+};
+#define MELODY_LEN (sizeof(melody)/sizeof(struct note))
+
+int melody_index;
+int melody_timeout;
 
 static void init_lilakit(void);
 static void tick_lilakit(void);
@@ -75,8 +90,8 @@ void ram(void) {
     SCB_SYSAHBCLKCTRL |= (SCB_SYSAHBCLKCTRL_CT32B0);
     TMR_TMR32B0MR0  = (72E6/5E3)/2;
     TMR_TMR32B0MCR = (TMR_TMR32B0MCR_MR0_INT_ENABLED | TMR_TMR32B0MCR_MR0_RESET_ENABLED);
-    NVIC_EnableIRQ(TIMER_32_0_IRQn);
-    TMR_TMR32B0TCR = TMR_TMR32B0TCR_COUNTERENABLE_ENABLED;
+    melody_index = MELODY_LEN;
+    
     init_lilakit();
 	mainloop();
 
@@ -91,12 +106,11 @@ void handler(void)
     gpioSetValue (LK_PIEZO, time);
 }
 
-static void mainloop(void) {
+static void mainloop(void)
+{
     int dx=0;
 	int dy=0;
-    static uint32_t ctr=0;
-	ctr++;
-
+    
 	setExtFont(GLOBAL(nickfont));
 	dx=DoString(0,0,GLOBAL(nickname));
     dx=(RESX-dx)/2;
@@ -107,13 +121,52 @@ static void mainloop(void) {
 	lcdClear();
     lcdSetPixel(1,1,1);
 	DoString(dx,dy,GLOBAL(nickname));
-	lcdRefresh();
+    lcdRefresh();
+
+    lk_ticks = 0;
+    lk_button_mode = 0x00;
+    lk_ls0 = 0x00;
+    lk_ls1 = 0x00;
+    lk_ls2 = 0x00;
+    lk_ls3 = 0x00;
+    lk_in0 = 0x00;
+    lk_in1 = 0x00;
+    lk_ticks = 0x0000;
+    lk_piezo_toggle = 0x00;
 
     while(getInputRaw()==BTN_NONE){
-        delayms_queue_plus(10,0);
-    };
-    tick_lilakit();
+        tick_lilakit();
+        melody_play();
+        //delayms_queue(10);    //XXX: this hangs the badge.
+        delayms(10);
+    }
     return;
+}
+
+void melody_play(void)
+{
+    int ton, timer;
+    if( melody_index < MELODY_LEN){
+        if(melody_timeout == 0){
+            ton = melody[melody_index].freq;
+            melody_timeout = melody[melody_index].duration / 10;
+            timer = (72000000UL/ton/2);
+            TMR_TMR32B0MR0 = timer;
+            if (TMR_TMR32B0TC > timer){
+                //schneller fix wenn ton zurueckgesetzt wird, aber timer weiterlaeuft
+                TMR_TMR32B0TC=0;
+            }
+            if( melody_index == 0 ){
+                NVIC_EnableIRQ(TIMER_32_0_IRQn);
+                TMR_TMR32B0TCR = TMR_TMR32B0TCR_COUNTERENABLE_ENABLED;
+            }
+            melody_index++;
+        }
+        melody_timeout--;
+    }else{
+        NVIC_DisableIRQ(TIMER_32_0_IRQn);
+        TMR_TMR32B0TCR = TMR_TMR32B0TCR_COUNTERENABLE_DISABLED;
+    }
 }
 
 static uint32_t lkSetI2C(uint8_t cr, uint8_t value) {
@@ -151,42 +204,44 @@ static void lkReadI2C() {
     lk_in0 = lkGetI2C(LK_I2C_CR_INPUT0);
     lk_in1 = lkGetI2C(LK_I2C_CR_INPUT1);
 }
-    
+
 static void tick_lilakit(void)
 { // every 10ms
-    if (lkEnabled == 0) {
-	return;
-    }
-    
     lk_ticks++;
 
+    if (lkEnabled == 0) {
+	    return;
+    }
+ 
     if (lk_ticks % 10 == 0) {
 	    lkReadI2C();
-    }
     
-    if ((lk_in0 & 0x02) == 0 && lk_button_mode == 0) {
-	    lk_ticks = 0;
-	    lk_button_mode = 1;
-	
-	    lk_ls1 = 0;
-	    lk_ls1 |= LK_I2C_LS_ON << 4;
-	    lk_ls1 |= LK_I2C_LS_ON << 6;
-	    lkUpdateI2C();
-    }
+        if ((lk_in0 & 0x02) == 0 && lk_button_mode == 0) {
+            melody_index = 0;
+            melody_timeout = 0;
 
-    if (lk_button_mode == 1 && lk_ticks > 0xFF) {
-	    lk_button_mode = 0;
-	    lk_ls1 = 0;
-	    lk_ls1 |= LK_I2C_LS_PWM0 << 4;
-	    lk_ls1 |= LK_I2C_LS_PWM1 << 6;
-	    lkUpdateI2C();
+            lk_ticks = 0;
+            lk_button_mode = 1;
+        
+            lk_ls1 = 0;
+            lk_ls1 |= LK_I2C_LS_ON << 4;
+            lk_ls1 |= LK_I2C_LS_ON << 6;
+            lkUpdateI2C();
+        }
+
+        if (lk_button_mode == 1 && lk_ticks > 0xFF) {
+            lk_button_mode = 0;
+            lk_ls1 = 0;
+            lk_ls1 |= LK_I2C_LS_PWM0 << 4;
+            lk_ls1 |= LK_I2C_LS_PWM1 << 6;
+            lkUpdateI2C();
+        }
     }
 
 }
 
-static void init_lilakit(void) {
-
-    i2cInit(I2CMASTER); // Init I2C
+static void init_lilakit(void)
+{
 
     lkEnabled = (lkSetI2C(LK_I2C_CR_LS0, LK_I2C_LS_OFF << 0) == I2CSTATE_ACK); // probe i2c
     if (lkEnabled == 0) {
@@ -220,7 +275,6 @@ static void init_lilakit(void) {
     // Prepare SS
     gpioSetDir(LK_PIEZO, gpioDirection_Output);
     gpioSetValue(LK_PIEZO, 1);
-
 
     // Prepare blinking
     lkSetI2C(LK_I2C_CR_PSC0, 0x23);

@@ -91,7 +91,6 @@ GetVoltage
 isNight
 _timectr
 crc16
-randomInit
 getRandom
 getSeconds
 iapReadSerialNumber
@@ -116,4 +115,12 @@ uint8ptouint32
 #o_set_shader
 #o_identity
 #o_transform
+#I2C
+I2CMasterBuffer
+I2CSlaveBuffer
+I2CWriteLength
+I2CReadLength
+i2cEngine
+i2cInit
+timer32Callback0
 getFiles
