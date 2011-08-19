@@ -56,6 +56,7 @@ typedef struct {
 #define SCB_BASE            (SCS_BASE +  0x0D00UL)                    /*!< System Control Block Base Address */
 #define SCB                 ((SCB_Type *)           SCB_BASE)         /*!< SCB configuration struct          */
 
+#define MIN_SAFE_VOLTAGE 3650
 
 void (*orig_handler_extint3)(void);  // original EINT3 handler
 
@@ -161,7 +162,19 @@ static void intro(int num){
 
 }
 
+const char * const dataFileName= "geiger.csv";
 
+static void OpenDataFile(FIL * datafile){
+
+	f_open(datafile,dataFileName,FA_WRITE|FA_OPEN_ALWAYS);
+	f_lseek(datafile,datafile->fsize);
+
+}
+
+static void writeDataHeader(FIL * datafile) {
+	UINT dummy;
+	f_write(datafile,"-----\n\r",7,&dummy);
+}
 
 static void writeDataToFile(FIL* file){
 	//char buf[16];
@@ -171,18 +184,23 @@ static void writeDataToFile(FIL* file){
 
 	    f_write(file, c,strlen(c),&nBytes );
 	    f_write(file,"\n\r",2,&nBytes);
+	    if (GetVoltage()<MIN_SAFE_VOLTAGE) {
+	    	f_close(file); // update FAT + Dir entry
+	    	OpenDataFile(file);
+	    }
 
 	}
 
 }
 
+
+
 static uint8_t mainloop() {
 	uint32_t ioconbak = IOCON_PIO1_11;
 	UINT perMin;
 	FIL datafile;
-	f_open(&datafile,"geiger.csv",FA_WRITE|FA_OPEN_ALWAYS);
-	f_lseek(&datafile,datafile.fsize);
-	f_write(&datafile,"-----\n\r",7,&perMin);
+	OpenDataFile(&datafile);
+	writeDataHeader(&datafile);
 	uint32_t volatile oldCount=IntCtr;
 	perMin=0; // counts in last 60 s
 	uint32_t minuteTime=_timectr;
@@ -225,6 +243,12 @@ static uint8_t mainloop() {
 				lcdPrintln(" uSv/h");
 
 			}
+			if (GetVoltage()<MIN_SAFE_VOLTAGE) {
+				if (GetVoltage()<3550) {
+					lcdPrintln("Battery CRIT!");
+				} else
+				lcdPrintln("Battery low");
+			}
 			// remember: We have a 10ms Timer counter
 			if ((minuteTime+60 *100 ) < _timectr) {
 				// dumb algo: Just use last 60 seconds count
@@ -232,7 +256,7 @@ static uint8_t mainloop() {
 				minuteTime=_timectr;
 				oldCount=IntCtr;
 				dataBuf[dataBufIdx++]=perMin;
-				if (dataBufIdx >=30) {
+				if ((dataBufIdx >=30)||(GetVoltage()<MIN_SAFE_VOLTAGE)) {
 					writeDataToFile(&datafile);
 					dataBufIdx=0;
 				}
