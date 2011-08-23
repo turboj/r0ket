@@ -32,7 +32,8 @@ echo "###"
 echo "### Building initial"
 echo "###"
 
-git checkout filesystem/ffconf.h
+# git checkout filesystem/ffconf.h
+cp filesystem/ffconf.h filesystem/ffconf.h.initial
 make clean
 make APP=initial
 cp firmware.bin $TARG/initial.bin
@@ -100,5 +101,6 @@ echo "###"
 echo "### Done. Yay!"
 echo "###"
 
+cp filesystem/ffconf.h.initial filesystem/ffconf.h
 git checkout SECRETS
 git checkout filesystem/ffconf.h
