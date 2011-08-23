@@ -58,14 +58,19 @@ typedef struct {
 
 #define MIN_SAFE_VOLTAGE 3650
 
-void (*orig_handler_extint3)(void);  // original EINT3 handler
 
-uint32_t volatile IntCtr;
-uint32_t VectorTableInRAM[73] __attribute__ ((aligned(1024))); // VTOR needs 1024 Byte alignment, see UM10375.PDF
+uint32_t VectorTableInRAM[73]  __attribute__ ((aligned(512)))={1234}; // VTOR needs 1024 Byte alignment, see UM10375.PDF
+																	  // set to 512 to resolve a Linker Bug
+uint32_t dataBuf[30]__attribute__ ((aligned))={123}  ;
+void (*orig_handler_extint3)(void)__attribute__ ((aligned))=(void*)0x000123;  // original EINT3 handler
 
-uint32_t dataBuf[30]={123};
-uint8_t dataBufIdx=1;
+uint32_t volatile IntCtr __attribute__ ((aligned))=1;
 
+
+
+uint8_t dataBufIdx __attribute__ ((aligned))=1;
+
+static const char * const dataFileName = "geiger.csv";
 
 void ExtInt3_Handler();
 
@@ -162,7 +167,7 @@ static void intro(int num){
 
 }
 
-const char * const dataFileName= "geiger.csv";
+
 
 static void OpenDataFile(FIL * datafile){
 
