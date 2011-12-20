@@ -6,18 +6,22 @@
 #include "filesystem/ff.h"
 #include "basic/uuid.h"
 
-//const uint32_t key[4] = {0xFFFF, 0xFFFF, 0xFFFF, 0xFFFF};
 #include "SECRETS"
-const uint8_t useencryption = 1;
+
+#define SAVE_OPENBEACON 1
 const uint8_t mac[5] = {1,2,3,2,1};
 
 volatile uint32_t oid = 0;
 volatile uint32_t seq = 0;
 volatile uint8_t strength = 0;
+
+#if SAVE_OPENBEACON
 static void openbeaconSave(uint32_t s);
+#endif
 
 static struct NRF_CFG oldconfig;
 
+#if SAVE_OPENBEACON
 static void openbeaconShutdown(void)
 {    
     openbeaconSave(seq);
@@ -61,14 +65,16 @@ static void openbeaconRead()
     
     f_close(&file);
 }
-
+#endif
 
 void openbeaconSetup(void)
 {
     oid = GetUUID32();
     strength = 0;
+#if SAVE_OPENBEACON
     openbeaconRead();
     openbeaconSaveBlock();
+#endif
 }
 
 static uint8_t openbeaconSendPacket(uint32_t id, uint32_t seq,
@@ -87,7 +93,11 @@ static uint8_t openbeaconSendPacket(uint32_t id, uint32_t seq,
     buf[12]=0xff; // salt (0xffff always?)
     buf[13]=0xff;
 
-    return nrf_snd_pkt_crc_encr(16,buf,useencryption?openbeaconkey:NULL);
+#if ENCRYPT_OPENBEACON
+    return nrf_snd_pkt_crc_encr(16,buf,openbeaconkey);
+#else
+    return nrf_snd_pkt_crc_encr(16,buf,NULL);
+#endif
 }
 
 uint8_t openbeaconSend(void)
@@ -100,11 +110,13 @@ uint8_t openbeaconSend(void)
     nrf_set_strength(strength);
     nrf_set_tx_mac(sizeof(mac), mac);
 
-    status = openbeaconSendPacket(oid, seq, 0xFF, strength++);
+    status = openbeaconSendPacket(oid, seq++, 0xFF, strength++);
     if( strength == 4 )
         strength = 0;
-    if( (seq++ & OPENBEACON_SAVE) == OPENBEACON_SAVE )
-        openbeaconSaveBlock();
+#if SAVE_OPENBEACON
+    if( (seq & OPENBEACON_SAVE) == OPENBEACON_SAVE )
+        push_queue(&openbeaconSaveBlock);
+#endif
     nrf_config_set(&oldconfig);
     return status;
 }

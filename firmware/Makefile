@@ -9,12 +9,10 @@ LIBS =
 VPATH +=
 OBJS += main.o
 
-ifeq "$(wildcard table.c)" "table.c"
-ifeq "$(APP)" "serial"
+ifeq "$(TABLE)" "NO"
 OBJS +=
 else
 OBJS += table.o
-endif
 endif
 
 LIBS += lcd/liblcd.a
@@ -66,26 +64,26 @@ all: $(OUTFILE).bin
 protect: $(OUTFILE).bin
 	$(LPCFIX) -p 2 $(OUTFILE).bin
 
-loadables: $(OUTFILE).bin
-	@cd loadable && $(MAKE)
-
-l0dables:
+l0dables: table.c
 	@cd l0dable && $(MAKE)
 
 clean:
-	rm -f $(OBJS) $(LD_TEMP) $(OUTFILE).elf $(OUTFILE).bin $(OUTFILE).hex
+	rm -f $(OBJS) $(LD_TEMP) $(OUTFILE).elf $(OUTFILE).bin $(OUTFILE).hex table.c table.h
 	for dir in $(SUBDIRS); do \
 	    $(MAKE) $(CONFIG_MAKE_PRINTDIRECTORY) -C $$dir clean; \
 	done
 	$(MAKE) $(CONFIG_MAKE_PRINTDIRECTORY) -C l0dable clean
 
 flash: all
-	../tools/bootloader/autoflash
+	../tools/bootloader/simpleflash firmware.bin
 
 ### Internal targets
 
 %.o : %.c
 	$(CC) $(CFLAGS) -o $@ $<
+
+table.c: l0dable/EXPORTS
+	./l0dable/mktable.pl
 
 ### Make all libraries...
 .PHONY: subdirs $(SUBDIRS)
