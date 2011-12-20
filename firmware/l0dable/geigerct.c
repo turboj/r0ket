@@ -197,7 +197,77 @@ static void intro(int num){
 
 }
 
-
+/* USB String Descriptor (optional) */
+#define WBVAL(x) ((x) & 0xFF),(((x) >> 8) & 0xFF)
+const uint8_t USB_HIDStringDescriptor1[] =
+{
+  /* Index 0x00: LANGID Codes */
+  0x04,                              /* bLength */
+  USB_STRING_DESCRIPTOR_TYPE,        /* bDescriptorType */
+  WBVAL(0x0409), /* US English */    /* wLANGID */
+  /* Index 0x04: Manufacturer */
+  0x1C,                              /* bLength */
+  USB_STRING_DESCRIPTOR_TYPE,        /* bDescriptorType */
+  'C',0,
+  'C',0,
+  'C',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  /* Index 0x20: Product */
+  0x28,                              /* bLength */
+  USB_STRING_DESCRIPTOR_TYPE,        /* bDescriptorType */
+  'r',0,
+  '0',0,
+  'k',0,
+  'e',0,
+  't',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  /* Index 0x48: Serial Number */
+  0x1A,                              /* bLength */
+  USB_STRING_DESCRIPTOR_TYPE,        /* bDescriptorType */
+  '0',0,
+  '0',0,
+  '0',0,
+  '0',0,
+  '0',0,
+  '0',0,
+  '0',0,
+  '0',0,
+  '0',0,
+  '0',0,
+  '0',0,
+  '0',0,
+  /* Index 0x62: Interface 0, Alternate Setting 0 */
+  0x0E,                              /* bLength */
+  USB_STRING_DESCRIPTOR_TYPE,        /* bDescriptorType */
+  'H',0,
+  'I',0,
+  'D',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+};
 
 void usbHIDInit (void)
 {
@@ -236,7 +306,7 @@ void usbHIDInit (void)
   HidDevInfo.idVendor = USB_VENDOR_ID;
   HidDevInfo.idProduct = USB_PROD_ID;
   HidDevInfo.bcdDevice = USB_DEVICE;
-  HidDevInfo.StrDescPtr = (uint32_t)USB_HIDStringDescriptor[0];
+  HidDevInfo.StrDescPtr = (uint32_t)USB_HIDStringDescriptor1[0];
   HidDevInfo.InReportCount = sizeof(usbhid_out_t);
   HidDevInfo.OutReportCount = 0;
   HidDevInfo.SampleInterval = 0x20;

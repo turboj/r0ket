@@ -84,8 +84,10 @@ void t_ani(void){
     selectFile(fname, "LCD");
     lcdShowAnim(fname,1000);
 };
-extern void usbHIDInit (void);
-//# MENU hid_test
+
+#if 0
+// extern void usbHIDInit (void);
+// //# MENU hid_test
 void hid_menu(void) {
 	  lcdClear();
 	  delayms(100);
@@ -99,7 +101,7 @@ void hid_menu(void) {
 	    //fsReInit();
 };
 
-//# MENU reflash
+// //# MENU reflash
 void reflash_firmware(void) {
 	lcdClear();
 	lcdPrintln("Flash");
@@ -109,3 +111,4 @@ void reflash_firmware(void) {
 	ISPandReset();
 }
 
+#endif
