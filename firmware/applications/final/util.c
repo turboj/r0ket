@@ -85,30 +85,3 @@ void t_ani(void){
     lcdShowAnim(fname,1000);
 };
 
-#if 0
-// extern void usbHIDInit (void);
-// //# MENU hid_test
-void hid_menu(void) {
-	  lcdClear();
-	  delayms(100);
-	    lcdPrintln("HID Enabled.");
-	    lcdRefresh();
-	    usbHIDInit();
-	    while(getInputRaw() != BTN_RIGHT)delayms(10);
-	    DoString(0,16,"HID Disabled.");
-	    usbMSCOff();
-	    gpioSetPullup(&IOCON_PIO0_1, gpioPullupMode_PullUp);
-	    //fsReInit();
-};
-
-// //# MENU reflash
-void reflash_firmware(void) {
-	lcdClear();
-	lcdPrintln("Flash");
-	lcdPrintln("Firmware");
-	lcdPrintln("now!");
-	lcdRefresh();
-	ISPandReset();
-}
-
-#endif
