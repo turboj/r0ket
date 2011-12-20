@@ -128,10 +128,10 @@ void ExtInt3_Handler() {
 		GPIO_GPIO3IC |= (0x01); // ACK BUSINT
 
 
-		//GPIO_GPIO0DATA|=(1<<11);
-		IOCON_PIO1_11 = 0;
+
+//		IOCON_PIO1_11 = 0;
 		GPIO_GPIO1DATA |= (1 << 7);
-		GPIO_GPIO1DATA |= (1 << 11);
+//		GPIO_GPIO1DATA |= (1 << 11);
 		IntCtr++;
 	} else {
 		orig_handler_extint3();
@@ -337,44 +337,11 @@ static inline void usbHidDisconnect(void) {
 }
 
 
-/*
-static void OpenDataFile(FIL * datafile){
-
-	f_open(datafile,dataFileName,FA_WRITE|FA_OPEN_ALWAYS);
-	f_lseek(datafile,datafile->fsize);
-
-}
-
-
-static void writeDataHeader(FIL * datafile) {
-	UINT dummy;
-	f_write(datafile,"-----\n\r",7,&dummy);
-}
-
-static void writeDataToFile(FIL* file){
-	//char buf[16];
-	for (int i=0; i<dataBufIdx; i++ ) {
-		UINT nBytes=0;
-		char *c=IntToStr(dataBuf[i],7,0);
-
-	    f_write(file, c,strlen(c),&nBytes );
-	    f_write(file,"\n\r",2,&nBytes);
-	    if (GetVoltage()<MIN_SAFE_VOLTAGE) {
-	    	f_close(file); // update FAT + Dir entry
-	    	OpenDataFile(file);
-	    }
-
-	}
-
-}
-
-*/
-
 UINT perMin;
 uint32_t startTime;
 
 static uint8_t mainloop() {
-	uint32_t ioconbak = IOCON_PIO1_11;
+	//uint32_t ioconbak = IOCON_PIO1_11;
 
 
 	uint32_t volatile oldCount=IntCtr;
@@ -382,13 +349,13 @@ static uint8_t mainloop() {
 	uint32_t minuteTime=_timectr;
 	startTime=minuteTime;
 	uint8_t button;
-		IOCON_PIO1_11 = 0;
+		//IOCON_PIO1_11 = 0;
 		usbHIDInit();
 		while (1) {
 			//GPIO_GPIO0DATA&=~(1<<11);
-			IOCON_PIO1_11 = ioconbak;
+			//IOCON_PIO1_11 = ioconbak;
 			GPIO_GPIO1DATA &= ~(1 << 7);
-			GPIO_GPIO1DATA &= ~(1 << 11);
+			//GPIO_GPIO1DATA &= ~(1 << 11);
 			lcdClear();
 
 			lcdPrintln("   Geiger");
@@ -435,7 +402,7 @@ static uint8_t mainloop() {
 
 			}
 			lcdRefresh();
-			delayms(42);
+			delayms_queue_plus(42,0);
 			button = getInputRaw();
 
 			if (button != BTN_NONE) {
@@ -448,7 +415,7 @@ static uint8_t mainloop() {
 		//if (dataBufIdx) writeDataToFile(&datafile);
 		//f_close(&datafile);
 		usbHidDisconnect();
-		IOCON_PIO1_11 = ioconbak;
+		//IOCON_PIO1_11 = ioconbak;
 		return button;
 
 }
