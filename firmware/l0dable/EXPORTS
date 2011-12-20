@@ -124,3 +124,5 @@ i2cEngine
 i2cInit
 timer32Callback0
 getFiles
+usbMSCenabled
+USB_HIDStringDescriptor

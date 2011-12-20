@@ -80,10 +80,10 @@ void usbHIDGetInReport (uint8_t src[], uint32_t length)
   out.gpio2Data = GPIO_GPIO2DATA;
   out.gpio3Dir = GPIO_GPIO3DIR;
   out.gpio3Data = GPIO_GPIO3DATA;
-  out.adc0 = adcRead(0);
+/*  out.adc0 = adcRead(0);
   out.adc1 = adcRead(1);
   out.adc2 = adcRead(2);
-  out.adc3 = adcRead(3);
+  out.adc3 = adcRead(3); */
   out.systicks = systickGetTicks();
   out.rollovers = systickGetRollovers();
 
@@ -128,12 +128,12 @@ void usbHIDSetOutReport (uint8_t dst[], uint32_t length)
   if (PCOutReportData & (1<<0))
   {
     // Enable LED (set low)
-    gpioSetValue (CFG_LED_PORT, CFG_LED_PIN, 0);
+ //   gpioSetValue (CFG_LED_PORT, CFG_LED_PIN, 0);
   }
   else
   {
     // Disable LED (set high)
-    gpioSetValue (CFG_LED_PORT, CFG_LED_PIN, 1);
+   // gpioSetValue (CFG_LED_PORT, CFG_LED_PIN, 1);
   }
 }
 
@@ -149,6 +149,8 @@ void usbHIDSetOutReport (uint8_t dst[], uint32_t length)
     configured.
 */
 /**************************************************************************/
+
+extern char usbMSCenabled;
 void usbHIDInit (void)
 {
   // Setup USB clock
@@ -169,8 +171,8 @@ void usbHIDInit (void)
   SCB_USBCLKSEL = SCB_USBCLKSEL_SOURCE_USBPLLOUT;
 
   // Set USB pin functions
-  IOCON_PIO0_1 &= ~IOCON_PIO0_1_FUNC_MASK;
-  IOCON_PIO0_1 |= IOCON_PIO0_1_FUNC_CLKOUT;           // CLK OUT
+  //IOCON_PIO0_1 &= ~IOCON_PIO0_1_FUNC_MASK;
+  //IOCON_PIO0_1 |= IOCON_PIO0_1_FUNC_CLKOUT;           // CLK OUT
   IOCON_PIO0_3 &= ~IOCON_PIO0_3_FUNC_MASK;
   IOCON_PIO0_3 |= IOCON_PIO0_3_FUNC_USB_VBUS;         // VBus
   IOCON_PIO0_6 &= ~IOCON_PIO0_6_FUNC_MASK;
@@ -179,14 +181,16 @@ void usbHIDInit (void)
   // Disable internal resistor on VBUS (0.3)
   gpioSetPullup(&IOCON_PIO0_3, gpioPullupMode_Inactive);
 
+
+
   // HID Device Info
   volatile int n;
   HidDevInfo.idVendor = USB_VENDOR_ID;
   HidDevInfo.idProduct = USB_PROD_ID;
-  HidDevInfo.bcdDevice = USB_DEVICE; 
-  HidDevInfo.StrDescPtr = (uint32_t)&USB_HIDStringDescriptor[0];
+  HidDevInfo.bcdDevice = USB_DEVICE+0x77;
+  HidDevInfo.StrDescPtr = (uint32_t)USB_HIDStringDescriptor[0];
   HidDevInfo.InReportCount = sizeof(usbhid_out_t);
-  HidDevInfo.OutReportCount = 1;
+  HidDevInfo.OutReportCount = 0;
   HidDevInfo.SampleInterval = 0x20;
   HidDevInfo.InReport = usbHIDGetInReport;
   HidDevInfo.OutReport = usbHIDSetOutReport;
@@ -199,13 +203,14 @@ void usbHIDInit (void)
 
   /* Use pll and pin init function in rom */
   /* Warning: This will also set the system clock to 48MHz! */
-  // (*rom)->pUSBD->init_clk_pins();   
+   //(*rom)->pUSBD->init_clk_pins();
 
   /* insert a delay between clk init and usb init */
   for (n = 0; n < 75; n++) {__asm("nop");}
 
   (*rom)->pUSBD->init(&DeviceInfo); /* USB Initialization */
   (*rom)->pUSBD->connect(true);     /* USB Connect */
+  usbMSCenabled|=1;
 }
 
 /**************************************************************************/

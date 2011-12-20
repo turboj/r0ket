@@ -49,7 +49,7 @@ static uint64_t uatoi(char * buf) {
 	return i;
 }
 
-//# MENU clock
+// //# MENU clock
 void doClockSet(void){
 char buffer[12];
 struct tm * mytm=mygmtime(getSeconds());

@@ -29,7 +29,9 @@ void msc_menu(void){
     fsReInit();
 };
 
-//# MENU lcdread
+
+
+// //# MENU lcdread
 void lcdrtest(void){
     lcdClear();
     lcdPrint("ID1:"); lcdPrintInt(lcdRead(128+64+16+8  +2  )); lcdNl();
@@ -44,6 +46,7 @@ void lcdrtest(void){
     lcdRefresh();
     while(!getInputRaw())delayms(10);
 };
+
 
 void blink_led0(void){
     gpioSetValue (RB_LED0, 1-gpioGetValue(RB_LED0));
@@ -81,3 +84,28 @@ void t_ani(void){
     selectFile(fname, "LCD");
     lcdShowAnim(fname,1000);
 };
+extern void usbHIDInit (void);
+//# MENU hid_test
+void hid_menu(void) {
+	  lcdClear();
+	  delayms(100);
+	    lcdPrintln("HID Enabled.");
+	    lcdRefresh();
+	    usbHIDInit();
+	    while(getInputRaw() != BTN_RIGHT)delayms(10);
+	    DoString(0,16,"HID Disabled.");
+	    usbMSCOff();
+	    gpioSetPullup(&IOCON_PIO0_1, gpioPullupMode_PullUp);
+	    //fsReInit();
+};
+
+//# MENU reflash
+void reflash_firmware(void) {
+	lcdClear();
+	lcdPrintln("Flash");
+	lcdPrintln("Firmware");
+	lcdPrintln("now!");
+	lcdRefresh();
+	ISPandReset();
+}
+
