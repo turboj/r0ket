@@ -20,9 +20,18 @@
 #include "lcd/render.h"
 #include "lcd/print.h"
 #include "filesystem/ff.h"
-#include "funk/mesh.h"
+//#include "funk/mesh.h"
+
+#include "../core/rom_drivers.h"
+#include "../usb/usb.h"
+//#include "../usb/usbconfig.h"
+#include "../usb/usbhid.h"
 
 #include "usetable.h"
+
+#define USB_VENDOR_ID  0x4242
+#define USB_PROD_ID 0x1977
+#define USB_DEVICE 0x101
 
 // Liberated from ARM Cortex M3 CMSIS core_cm3.h
 // The processor definition headers for R0ket are incomplete :-/
@@ -61,16 +70,15 @@ typedef struct {
 
 uint32_t VectorTableInRAM[73]  __attribute__ ((aligned(512)))={1234}; // VTOR needs 1024 Byte alignment, see UM10375.PDF
 																	  // set to 512 to resolve a Linker Bug
-uint32_t dataBuf[30]__attribute__ ((aligned))={123}  ;
+
 void (*orig_handler_extint3)(void)__attribute__ ((aligned))=(void*)0x000123;  // original EINT3 handler
 
 uint32_t volatile IntCtr __attribute__ ((aligned))=1;
 
 
 
-uint8_t dataBufIdx __attribute__ ((aligned))=1;
 
-static const char * const dataFileName = "geiger.csv";
+
 
 void ExtInt3_Handler();
 
@@ -83,11 +91,10 @@ static void intro(int num);
 
 
 void ram(void) {
-	uint8_t button;
+	//uint8_t button;
 	uint32_t LEDs;
-
 	intro(3);
-	dataBufIdx=0;
+
 	// populate my Vector table
 	memcpy(VectorTableInRAM, 0, sizeof(VectorTableInRAM));
 	orig_handler_extint3 = (void*) VectorTableInRAM[EINT3_IRQn + 16];
@@ -111,6 +118,7 @@ void ram(void) {
 	NVIC_DisableIRQ(EINT3_IRQn);
 	// restore VTOR
 	SCB->VTOR = 0;
+
 	//TODO DMB(); Cortex Manual suggests DMB after setting VTOR
 	// not really needed in this case
 }
@@ -144,6 +152,28 @@ static uint32_t nanoSievertPerH(uint32_t cpm) {
 
 
 
+static USB_DEV_INFO DeviceInfo;
+static HID_DEVICE_INFO HidDevInfo;
+static ROM **  rom = (ROM **)0x1fff1ff8;
+
+typedef struct usbhid_out_s
+{
+	uint32_t perMin;
+	uint32_t totalCount;
+	uint32_t totalSec;
+	uint32_t nanoSievertPerH;
+}usbhid_out_t;
+
+
+
+void usbHIDSetOutReport (uint8_t dst[], uint32_t length)
+{
+  // DO NOTHING, no data from PC
+}
+
+void usbHIDGetInReport (uint8_t src[], uint32_t length);
+
+
 static void intro(int num){
   FIL file;
   int res;
@@ -167,14 +197,154 @@ static void intro(int num){
 
 }
 
+/* USB String Descriptor (optional) */
+#define WBVAL(x) ((x) & 0xFF),(((x) >> 8) & 0xFF)
+const uint8_t USB_HIDStringDescriptor1[] =
+{
+  /* Index 0x00: LANGID Codes */
+  0x04,                              /* bLength */
+  USB_STRING_DESCRIPTOR_TYPE,        /* bDescriptorType */
+  WBVAL(0x0409), /* US English */    /* wLANGID */
+  /* Index 0x04: Manufacturer */
+  0x1C,                              /* bLength */
+  USB_STRING_DESCRIPTOR_TYPE,        /* bDescriptorType */
+  'C',0,
+  'C',0,
+  'C',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  /* Index 0x20: Product */
+  0x28,                              /* bLength */
+  USB_STRING_DESCRIPTOR_TYPE,        /* bDescriptorType */
+  'r',0,
+  '0',0,
+  'k',0,
+  'e',0,
+  't',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+  /* Index 0x48: Serial Number */
+  0x1A,                              /* bLength */
+  USB_STRING_DESCRIPTOR_TYPE,        /* bDescriptorType */
+  '0',0,
+  '0',0,
+  '0',0,
+  '0',0,
+  '0',0,
+  '0',0,
+  '0',0,
+  '0',0,
+  '0',0,
+  '0',0,
+  '0',0,
+  '0',0,
+  /* Index 0x62: Interface 0, Alternate Setting 0 */
+  0x0E,                              /* bLength */
+  USB_STRING_DESCRIPTOR_TYPE,        /* bDescriptorType */
+  'H',0,
+  'I',0,
+  'D',0,
+  ' ',0,
+  ' ',0,
+  ' ',0,
+};
+
+void usbHIDInit (void)
+{
+  // Setup USB clock
+  SCB_PDRUNCFG &= ~(SCB_PDSLEEPCFG_USBPAD_PD);        // Power-up USB PHY
+  SCB_PDRUNCFG &= ~(SCB_PDSLEEPCFG_USBPLL_PD);        // Power-up USB PLL
+
+  SCB_USBPLLCLKSEL = SCB_USBPLLCLKSEL_SOURCE_MAINOSC; // Select PLL Input
+  SCB_USBPLLCLKUEN = SCB_USBPLLCLKUEN_UPDATE;         // Update Clock Source
+  SCB_USBPLLCLKUEN = SCB_USBPLLCLKUEN_DISABLE;        // Toggle Update Register
+  SCB_USBPLLCLKUEN = SCB_USBPLLCLKUEN_UPDATE;
+
+  // Wait until the USB clock is updated
+  while (!(SCB_USBPLLCLKUEN & SCB_USBPLLCLKUEN_UPDATE));
+
+  // Set USB clock to 48MHz (12MHz x 4)
+  SCB_USBPLLCTRL = (SCB_USBPLLCTRL_MULT_4);
+  while (!(SCB_USBPLLSTAT & SCB_USBPLLSTAT_LOCK));    // Wait Until PLL Locked
+  SCB_USBCLKSEL = SCB_USBCLKSEL_SOURCE_USBPLLOUT;
+
+  // Set USB pin functions
+  //IOCON_PIO0_1 &= ~IOCON_PIO0_1_FUNC_MASK;
+  //IOCON_PIO0_1 |= IOCON_PIO0_1_FUNC_CLKOUT;           // CLK OUT
+  IOCON_PIO0_3 &= ~IOCON_PIO0_3_FUNC_MASK;
+  IOCON_PIO0_3 |= IOCON_PIO0_3_FUNC_USB_VBUS;         // VBus
+  IOCON_PIO0_6 &= ~IOCON_PIO0_6_FUNC_MASK;
+  IOCON_PIO0_6 |= IOCON_PIO0_6_FUNC_USB_CONNECT;      // Soft Connect
+
+  // Disable internal resistor on VBUS (0.3)
+  //gpioSetPullup(&IOCON_PIO0_3, gpioPullupMode_Inactive);
+  IOCON_PIO0_3= (IOCON_PIO0_3 & ~IOCON_COMMON_MODE_MASK)|gpioPullupMode_Inactive;
 
 
+  // HID Device Info
+  volatile int n;
+  HidDevInfo.idVendor = USB_VENDOR_ID;
+  HidDevInfo.idProduct = USB_PROD_ID;
+  HidDevInfo.bcdDevice = USB_DEVICE;
+  HidDevInfo.StrDescPtr = (uint32_t)USB_HIDStringDescriptor1[0];
+  HidDevInfo.InReportCount = sizeof(usbhid_out_t);
+  HidDevInfo.OutReportCount = 0;
+  HidDevInfo.SampleInterval = 0x20;
+  HidDevInfo.InReport = usbHIDGetInReport;
+  HidDevInfo.OutReport = usbHIDSetOutReport;
+
+  DeviceInfo.DevType = USB_DEVICE_CLASS_HUMAN_INTERFACE;
+  DeviceInfo.DevDetailPtr = (uint32_t)&HidDevInfo;
+
+  /* Enable Timer32_1, IOCON, and USB blocks (for USB ROM driver) */
+  SCB_SYSAHBCLKCTRL |= (SCB_SYSAHBCLKCTRL_CT32B1 | SCB_SYSAHBCLKCTRL_IOCON | SCB_SYSAHBCLKCTRL_USB_REG);
+
+  /* Use pll and pin init function in rom */
+  /* Warning: This will also set the system clock to 48MHz! */
+   //(*rom)->pUSBD->init_clk_pins();
+
+  /* insert a delay between clk init and usb init */
+  for (n = 0; n < 75; n++) {__asm("nop");}
+
+  (*rom)->pUSBD->init(&DeviceInfo); /* USB Initialization */
+  (*rom)->pUSBD->connect(true);     /* USB Connect */
+  usbMSCenabled|=1;
+}
+
+static inline void usbHidDisconnect(void) {
+	(*rom)->pUSBD->connect(false); /* USB Disconnect */
+	usbMSCenabled &= ~1;
+}
+
+
+/*
 static void OpenDataFile(FIL * datafile){
 
 	f_open(datafile,dataFileName,FA_WRITE|FA_OPEN_ALWAYS);
 	f_lseek(datafile,datafile->fsize);
 
 }
+
 
 static void writeDataHeader(FIL * datafile) {
 	UINT dummy;
@@ -198,20 +368,22 @@ static void writeDataToFile(FIL* file){
 
 }
 
+*/
 
+UINT perMin;
+uint32_t startTime;
 
 static uint8_t mainloop() {
 	uint32_t ioconbak = IOCON_PIO1_11;
-	UINT perMin;
-	FIL datafile;
-	OpenDataFile(&datafile);
-	writeDataHeader(&datafile);
+
+
 	uint32_t volatile oldCount=IntCtr;
 	perMin=0; // counts in last 60 s
 	uint32_t minuteTime=_timectr;
-	uint32_t startTime=minuteTime;
+	startTime=minuteTime;
 	uint8_t button;
 		IOCON_PIO1_11 = 0;
+		usbHIDInit();
 		while (1) {
 			//GPIO_GPIO0DATA&=~(1<<11);
 			IOCON_PIO1_11 = ioconbak;
@@ -227,7 +399,7 @@ static uint8_t mainloop() {
 			}
 
 			lcdPrintln("");
-			lcdPrintln("Counts:");
+			//lcdPrintln("Counts:");
 			lcdPrint(" ");
 			lcdPrintInt(IntCtr);
 			lcdPrint(" in ");
@@ -260,11 +432,7 @@ static uint8_t mainloop() {
 				perMin=IntCtr-oldCount;
 				minuteTime=_timectr;
 				oldCount=IntCtr;
-				dataBuf[dataBufIdx++]=perMin;
-				if ((dataBufIdx >=30)||(GetVoltage()<MIN_SAFE_VOLTAGE)) {
-					writeDataToFile(&datafile);
-					dataBufIdx=0;
-				}
+
 			}
 			lcdRefresh();
 			delayms(42);
@@ -277,11 +445,23 @@ static uint8_t mainloop() {
 			}
 		}
 
-		if (dataBufIdx) writeDataToFile(&datafile);
-		f_close(&datafile);
+		//if (dataBufIdx) writeDataToFile(&datafile);
+		//f_close(&datafile);
+		usbHidDisconnect();
 		IOCON_PIO1_11 = ioconbak;
 		return button;
 
 }
 
 
+void usbHIDGetInReport (uint8_t src[], uint32_t length)
+{
+  usbhid_out_t out;
+
+  out.perMin=perMin;
+  out.totalSec=(_timectr-startTime)/100;
+  out.totalCount=IntCtr;
+  out.nanoSievertPerH=nanoSievertPerH(perMin);
+
+  memcpy(src,&out,sizeof(out));
+}
