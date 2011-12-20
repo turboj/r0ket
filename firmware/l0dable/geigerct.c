@@ -70,14 +70,14 @@ typedef struct {
 
 uint32_t VectorTableInRAM[73]  __attribute__ ((aligned(512)))={1234}; // VTOR needs 1024 Byte alignment, see UM10375.PDF
 																	  // set to 512 to resolve a Linker Bug
-uint32_t dataBuf[30]__attribute__ ((aligned))={123}  ;
+
 void (*orig_handler_extint3)(void)__attribute__ ((aligned))=(void*)0x000123;  // original EINT3 handler
 
 uint32_t volatile IntCtr __attribute__ ((aligned))=1;
 
 
 
-uint8_t dataBufIdx __attribute__ ((aligned))=1;
+
 
 
 void ExtInt3_Handler();
@@ -91,11 +91,10 @@ static void intro(int num);
 
 
 void ram(void) {
-	uint8_t button;
+	//uint8_t button;
 	uint32_t LEDs;
-
 	intro(3);
-	dataBufIdx=0;
+
 	// populate my Vector table
 	memcpy(VectorTableInRAM, 0, sizeof(VectorTableInRAM));
 	orig_handler_extint3 = (void*) VectorTableInRAM[EINT3_IRQn + 16];
@@ -119,6 +118,7 @@ void ram(void) {
 	NVIC_DisableIRQ(EINT3_IRQn);
 	// restore VTOR
 	SCB->VTOR = 0;
+
 	//TODO DMB(); Cortex Manual suggests DMB after setting VTOR
 	// not really needed in this case
 }
@@ -154,7 +154,7 @@ static uint32_t nanoSievertPerH(uint32_t cpm) {
 
 static USB_DEV_INFO DeviceInfo;
 static HID_DEVICE_INFO HidDevInfo;
-static ROM ** rom = (ROM **)0x1fff1ff8;
+static ROM **  rom = (ROM **)0x1fff1ff8;
 
 typedef struct usbhid_out_s
 {
@@ -331,6 +331,11 @@ void usbHIDInit (void)
   usbMSCenabled|=1;
 }
 
+static inline void usbHidDisconnect(void) {
+	(*rom)->pUSBD->connect(false); /* USB Disconnect */
+	usbMSCenabled &= ~1;
+}
+
 
 /*
 static void OpenDataFile(FIL * datafile){
@@ -427,11 +432,7 @@ static uint8_t mainloop() {
 				perMin=IntCtr-oldCount;
 				minuteTime=_timectr;
 				oldCount=IntCtr;
-				dataBuf[dataBufIdx++]=perMin;
-				if ((dataBufIdx >=30)||(GetVoltage()<MIN_SAFE_VOLTAGE)) {
-				//	writeDataToFile(&datafile);
-					dataBufIdx=0;
-				}
+
 			}
 			lcdRefresh();
 			delayms(42);
@@ -446,6 +447,7 @@ static uint8_t mainloop() {
 
 		//if (dataBufIdx) writeDataToFile(&datafile);
 		//f_close(&datafile);
+		usbHidDisconnect();
 		IOCON_PIO1_11 = ioconbak;
 		return button;
 
