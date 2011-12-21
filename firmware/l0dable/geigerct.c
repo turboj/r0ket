@@ -99,7 +99,7 @@ void ram(void) {
 	VectorTableInRAM[EINT3_IRQn + 16] = (uint32_t) &ExtInt3_Handler;
 	// HACK: use RAM vector table to implement own External IRQ handler
 	SCB->VTOR = (uint32_t) &VectorTableInRAM[0];
-	// TODO add DMB() here, as VTOR updates are NOT effective immediately
+	//  add DMB() here, as VTOR updates are NOT effective immediately
 	//
 	GPIO_GPIO3IEV |= 1;
 	GPIO_GPIO3IE |= 1;
@@ -389,9 +389,6 @@ static uint8_t mainloop() {
 		delayms_queue_plus(42, 0);
 		button = getInputRaw();
 		if (button != BTN_NONE) {
-			delayms(23);// debounce and wait till user release button
-			while (getInputRaw() != BTN_NONE)
-				delayms(23);
 			break;
 		}
 	}
