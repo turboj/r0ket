@@ -66,7 +66,10 @@ typedef struct {
 #define SCB                 ((SCB_Type *)           SCB_BASE)         /*!< SCB configuration struct          */
 
 #define MIN_SAFE_VOLTAGE 3650
+#define CRIT_VOLTAGE 3550
 
+#define LED_ON	GPIO_GPIO1DATA |= (1 << 7)
+#define LED_OFF GPIO_GPIO1DATA &= ~(1 << 7)
 
 uint32_t VectorTableInRAM[73]  __attribute__ ((aligned(512)))={1234}; // VTOR needs 1024 Byte alignment, see UM10375.PDF
 																	  // set to 512 to resolve a Linker Bug
@@ -74,11 +77,6 @@ uint32_t VectorTableInRAM[73]  __attribute__ ((aligned(512)))={1234}; // VTOR ne
 void (*orig_handler_extint3)(void)__attribute__ ((aligned))=(void*)0x000123;  // original EINT3 handler
 
 uint32_t volatile IntCtr __attribute__ ((aligned))=1;
-
-
-
-
-
 
 void ExtInt3_Handler();
 
@@ -101,7 +99,7 @@ void ram(void) {
 	VectorTableInRAM[EINT3_IRQn + 16] = (uint32_t) &ExtInt3_Handler;
 	// HACK: use RAM vector table to implement own External IRQ handler
 	SCB->VTOR = (uint32_t) &VectorTableInRAM[0];
-	// TODO add DMB() here, as VTOR updates are NOT effective immediately
+	//  add DMB() here, as VTOR updates are NOT effective immediately
 	//
 	GPIO_GPIO3IEV |= 1;
 	GPIO_GPIO3IE |= 1;
@@ -118,9 +116,6 @@ void ram(void) {
 	NVIC_DisableIRQ(EINT3_IRQn);
 	// restore VTOR
 	SCB->VTOR = 0;
-
-	//TODO DMB(); Cortex Manual suggests DMB after setting VTOR
-	// not really needed in this case
 }
 
 void ExtInt3_Handler() {
@@ -128,26 +123,26 @@ void ExtInt3_Handler() {
 		GPIO_GPIO3IC |= (0x01); // ACK BUSINT
 
 
-		//GPIO_GPIO0DATA|=(1<<11);
-		IOCON_PIO1_11 = 0;
-		GPIO_GPIO1DATA |= (1 << 7);
-		GPIO_GPIO1DATA |= (1 << 11);
+
+//		IOCON_PIO1_11 = 0;
+		LED_ON;
+//		GPIO_GPIO1DATA |= (1 << 11);
 		IntCtr++;
 	} else {
 		orig_handler_extint3();
 	}
 }
 
-/* The datasheet for the SBM-20 tube says :
+/**
+ *  The datasheet for the SBM-20 tube says :
  *  Ra226: 29cps => 1mR/h = 10µSv/h
  *  Co60:  22cps => 1mR/h = 10µSv/h
  *
- *  //2.9 * 60 cpm = 1 µSv/h
+ *  2.9 * 60 cpm = 1 µSv/h
  */
-static uint32_t nanoSievertPerH(uint32_t cpm) {
-
+static uint32_t nanoSievertPerH(uint32_t cpm)
+{
 	return ((1000*cpm ) /(29*6) );
-
 }
 
 
@@ -191,7 +186,7 @@ static void intro(int num){
 			};
 	lcdRefresh();
 
-	delayms(50);
+	delayms_queue(23*7);
 
   } while (--num);
 
@@ -230,12 +225,12 @@ const uint8_t USB_HIDStringDescriptor1[] =
   'e',0,
   't',0,
   ' ',0,
-  ' ',0,
-  ' ',0,
-  ' ',0,
-  ' ',0,
-  ' ',0,
-  ' ',0,
+  'g',0,
+  'e',0,
+  'i',0,
+  'g',0,
+  'e',0,
+  'r',0,
   ' ',0,
   ' ',0,
   ' ',0,
@@ -297,7 +292,7 @@ void usbHIDInit (void)
   IOCON_PIO0_6 |= IOCON_PIO0_6_FUNC_USB_CONNECT;      // Soft Connect
 
   // Disable internal resistor on VBUS (0.3)
-  //gpioSetPullup(&IOCON_PIO0_3, gpioPullupMode_Inactive);
+  //gpioSetPullup(&IOCON_PIO0_3, gpioPullupMode_Inactive); not available in L0dable
   IOCON_PIO0_3= (IOCON_PIO0_3 & ~IOCON_COMMON_MODE_MASK)|gpioPullupMode_Inactive;
 
 
@@ -337,120 +332,68 @@ static inline void usbHidDisconnect(void) {
 }
 
 
-/*
-static void OpenDataFile(FIL * datafile){
-
-	f_open(datafile,dataFileName,FA_WRITE|FA_OPEN_ALWAYS);
-	f_lseek(datafile,datafile->fsize);
-
-}
-
-
-static void writeDataHeader(FIL * datafile) {
-	UINT dummy;
-	f_write(datafile,"-----\n\r",7,&dummy);
-}
-
-static void writeDataToFile(FIL* file){
-	//char buf[16];
-	for (int i=0; i<dataBufIdx; i++ ) {
-		UINT nBytes=0;
-		char *c=IntToStr(dataBuf[i],7,0);
-
-	    f_write(file, c,strlen(c),&nBytes );
-	    f_write(file,"\n\r",2,&nBytes);
-	    if (GetVoltage()<MIN_SAFE_VOLTAGE) {
-	    	f_close(file); // update FAT + Dir entry
-	    	OpenDataFile(file);
-	    }
-
-	}
-
-}
-
-*/
-
 UINT perMin;
 uint32_t startTime;
 
 static uint8_t mainloop() {
-	uint32_t ioconbak = IOCON_PIO1_11;
-
-
-	uint32_t volatile oldCount=IntCtr;
-	perMin=0; // counts in last 60 s
-	uint32_t minuteTime=_timectr;
-	startTime=minuteTime;
+	uint32_t volatile oldCount = IntCtr;
+	perMin = 0; // counts in last 60 s
+	uint32_t minuteTime = _timectr;
+	startTime = minuteTime;
 	uint8_t button;
-		IOCON_PIO1_11 = 0;
-		usbHIDInit();
-		while (1) {
-			//GPIO_GPIO0DATA&=~(1<<11);
-			IOCON_PIO1_11 = ioconbak;
-			GPIO_GPIO1DATA &= ~(1 << 7);
-			GPIO_GPIO1DATA &= ~(1 << 11);
-			lcdClear();
-
-			lcdPrintln("   Geiger");
-			lcdPrintln("   Counter");
-			// ####
-			for (int i=0; i< (14*( _timectr-minuteTime))/(60*100);i++) {
-				lcdPrint("#");
-			}
-
-			lcdPrintln("");
-			//lcdPrintln("Counts:");
-			lcdPrint(" ");
-			lcdPrintInt(IntCtr);
-			lcdPrint(" in ");
-			lcdPrintInt((_timectr-startTime)/100);
-			lcdPrintln("s");
-			lcdPrint(" ");
-			lcdPrintInt(  perMin);
-			lcdPrintln(" cpm");
-			{
-
-				uint32_t equivalent=nanoSievertPerH(perMin);
-				lcdPrint(" ");
-				lcdPrintInt(equivalent/1000);
-				lcdPrint(".");
-				lcdPrintInt((equivalent%1000) /100);
-				lcdPrintInt((equivalent%100) /10);
-				lcdPrintInt((equivalent%10));
-				lcdPrintln(" uSv/h");
-
-			}
-			if (GetVoltage()<MIN_SAFE_VOLTAGE) {
-				if (GetVoltage()<3550) {
-					lcdPrintln("Battery CRIT!");
-				} else
-				lcdPrintln("Battery low");
-			}
-			// remember: We have a 10ms Timer counter
-			if ((minuteTime+60 *100 ) < _timectr) {
-				// dumb algo: Just use last 60 seconds count
-				perMin=IntCtr-oldCount;
-				minuteTime=_timectr;
-				oldCount=IntCtr;
-
-			}
-			lcdRefresh();
-			delayms(42);
-			button = getInputRaw();
-
-			if (button != BTN_NONE) {
-				delayms(23);// debounce and wait till user release button
-				while (getInputRaw()!=BTN_NONE) delayms(23);
-				break;
-			}
+	usbHIDInit();
+	while (1) {
+		LED_OFF;
+		lcdClear();
+		lcdPrintln("   Geiger");
+		lcdPrintln("   Counter");
+		// ####
+		for (int i = 0; i < (14 * (_timectr - minuteTime)) / (60 * 100); i++) {
+			lcdPrint("#");
 		}
+		lcdPrintln("");
+		lcdPrint(" ");
+		lcdPrintInt(IntCtr);
+		lcdPrint(" in ");
+		lcdPrintInt((_timectr - startTime) / 100);
+		lcdPrintln("s");
+		lcdPrint(" ");
+		lcdPrintInt(perMin);
+		lcdPrintln(" cpm");
+		{
+			uint32_t equivalent = nanoSievertPerH(perMin);
+			lcdPrint(" ");
+			lcdPrintInt(equivalent / 1000);
+			lcdPrint(".");
+			lcdPrintInt((equivalent % 1000) / 100);
+			lcdPrintInt((equivalent % 100) / 10);
+			lcdPrintInt((equivalent % 10));
+			lcdPrintln(" uSv/h");
 
-		//if (dataBufIdx) writeDataToFile(&datafile);
-		//f_close(&datafile);
-		usbHidDisconnect();
-		IOCON_PIO1_11 = ioconbak;
-		return button;
+		}
+		if (GetVoltage() < MIN_SAFE_VOLTAGE) {
+			if (GetVoltage() < CRIT_VOLTAGE) {
+				lcdPrintln("Battery CRIT!");
+			} else
+				lcdPrintln("Battery low");
+		}
+		// remember: We have a 10ms Timer counter
+		if ((minuteTime + 60 * 100) < _timectr) {
+			// dumb algo: Just use last 60 seconds count
+			perMin = IntCtr - oldCount;
+			minuteTime = _timectr;
+			oldCount = IntCtr;
 
+		}
+		lcdRefresh();
+		delayms_queue_plus(42, 0);
+		button = getInputRaw();
+		if (button != BTN_NONE) {
+			break;
+		}
+	}
+	usbHidDisconnect();
+	return button;
 }
 
 
