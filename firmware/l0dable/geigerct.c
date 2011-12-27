@@ -20,7 +20,7 @@
 #include "lcd/render.h"
 #include "lcd/print.h"
 #include "filesystem/ff.h"
-//#include "funk/mesh.h"
+#include "funk/mesh.h"
 
 #include "../core/rom_drivers.h"
 #include "../usb/usb.h"
@@ -86,6 +86,9 @@ void ExtInt3_Handler();
 static uint8_t mainloop();
 
 static void intro(int num);
+//static void transmitGeigerMeshVal();
+static void getGeigerMeshVal();
+
 
 
 void ram(void) {
@@ -170,6 +173,7 @@ void usbHIDGetInReport (uint8_t src[], uint32_t length);
 
 
 static void intro(int num){
+#if 0
   FIL file;
   int res;
   UINT readbytes=RESX*RESY_B;
@@ -189,7 +193,18 @@ static void intro(int num){
 	delayms_queue(23*7);
 
   } while (--num);
+#endif
+}
 
+static void getGeigerMeshVal()
+{
+	MPKT * mpkt= meshGetMessage('g');
+	//char buf[32];
+	if (MO_TIME(mpkt->pkt)!=0) {
+		lcdPrint("Mesh:");
+		lcdPrintln((char*)MO_BODY(mpkt->pkt));
+		//lcdPrintln("cpm");
+	}
 }
 
 /* USB String Descriptor (optional) */
@@ -323,17 +338,27 @@ void usbHIDInit (void)
 
   (*rom)->pUSBD->init(&DeviceInfo); /* USB Initialization */
   (*rom)->pUSBD->connect(true);     /* USB Connect */
-  usbMSCenabled|=1;
 }
 
 static inline void usbHidDisconnect(void) {
 	(*rom)->pUSBD->connect(false); /* USB Disconnect */
-	usbMSCenabled &= ~1;
 }
 
 
 UINT perMin;
 uint32_t startTime;
+static void transmitGeigerMeshVal(uint32_t cpm,uint32_t time)
+{
+	if (perMin>0) {
+	MPKT * mpkt= meshGetMessage('g');
+	MO_TIME_set(mpkt->pkt,time);
+	strcpy((char*)MO_BODY(mpkt->pkt),IntToStr(cpm,5,0));
+	strcpy((char*)(MO_BODY(mpkt->pkt)+strlen((char*)MO_BODY(mpkt->pkt)))," cpm");
+	lcdPrint("S:");
+	lcdPrintln((char*)MO_BODY(mpkt->pkt));
+	}
+}
+
 
 static uint8_t mainloop() {
 	uint32_t volatile oldCount = IntCtr;
@@ -376,15 +401,16 @@ static uint8_t mainloop() {
 				lcdPrintln("Battery CRIT!");
 			} else
 				lcdPrintln("Battery low");
-		}
+		} else lcdPrintln(" ");
 		// remember: We have a 10ms Timer counter
 		if ((minuteTime + 60 * 100) < _timectr) {
 			// dumb algo: Just use last 60 seconds count
 			perMin = IntCtr - oldCount;
 			minuteTime = _timectr;
 			oldCount = IntCtr;
-
+			transmitGeigerMeshVal(perMin,minuteTime / (100));
 		}
+		getGeigerMeshVal();
 		lcdRefresh();
 		delayms_queue_plus(42, 0);
 		button = getInputRaw();
@@ -408,3 +434,5 @@ void usbHIDGetInReport (uint8_t src[], uint32_t length)
 
   memcpy(src,&out,sizeof(out));
 }
+
+
