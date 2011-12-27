@@ -12,7 +12,7 @@
 
 
 //channel and mac used to transmit game announcements
-#define ANNOUNCE_CHANNEL 81
+#define ANNOUNCE_CHANNEL 87
 #define ANNOUNCE_MAC     "REM0T"
 
 struct NRF_CFG config;
@@ -93,6 +93,7 @@ uint16_t gameId;
 uint8_t interval;
 uint8_t jitter;
 uint8_t flags;
+uint8_t *gameTitle;
 
 void sendButton(uint8_t button);
 void sendJoin(uint32_t game);
@@ -129,6 +130,9 @@ void playGame(void)
 {
     int len;
     struct packet p;
+    lcdPrintln("Now playing:");
+    lcdPrintln(gameTitle);
+    lcdRefresh();
 
     while(1){
         uint8_t button = getInputRaw();
@@ -147,7 +151,12 @@ void playGame(void)
             }
         }
         int rnd = getRandom() % jitter;
-        delayms(interval+rnd);
+        delayms(interval*5+rnd);
+        
+        volatile uint16_t i;
+        i = getRandom()&0xfff;
+        while(i--);
+
     };
 }
 
@@ -177,24 +186,26 @@ uint8_t joinGame()
 {
     int i;
     struct packet p;
+    struct packet ack;
+    memset((void*)&p, 0, sizeof(p));
+    memset((void*)&ack, 0, sizeof(ack));
     p.len=sizeof(p); 
     p.protocol='G';
     p.command='J';
     p.id= id;
     p.ctr= ++ctr;
     p.c.join.gameId=gameId;
-    lcdClear();
     lcdPrintln("Joining game");
     lcdRefresh();
 
     for(i=0; i<10; i++){
         nrf_snd_pkt_crc(sizeof(p),(uint8_t*)&p);
 
-        int len = nrf_rcv_pkt_time(30,sizeof(p),(uint8_t*)&p);
-        if( len==sizeof(p) ){
-            if( (p.len==32) && (p.protocol=='G') && p.command=='a' ){   //check sanity, protocol
-                if( p.id == id && p.ctr == ctr ){
-                    if( p.c.ack.flags & FLAGS_ACK_JOINOK ){
+        int len = nrf_rcv_pkt_time(30,sizeof(ack),(uint8_t*)&ack);
+        if( len==sizeof(ack) ){
+            if( (ack.len==32) && (ack.protocol=='G') && ack.command=='a' ){   //check sanity, protocol
+                if( ack.id == id && ack.ctr == ctr ){
+                    if( ack.c.ack.flags & FLAGS_ACK_JOINOK ){
                         lcdPrintln("Join OK");
                         lcdRefresh();
                         return 1;
@@ -228,12 +239,34 @@ uint8_t selectGame()
     nrf_config_set(&config);
 
     gamecount = 0;
+    lcdClear();
+    lcdPrintln("Searching for");
+    lcdPrintln("games on");
+    lcdPrintln("channel 87");
+    lcdRefresh();
     for(i=0;i<60;i++){
         len= nrf_rcv_pkt_time(30, sizeof(p), (uint8_t*)&p);
         if (len==sizeof(p)){
             if( a ) a = 0; else a = 1;
             gpioSetValue (RB_LED2, a);
             processPacket(&p);
+        }
+    }
+    if( gamecount == 0){
+        config.channel = 81;
+        nrf_config_set(&config);
+        lcdClear();
+        lcdPrintln("Searching for");
+        lcdPrintln("games on");
+        lcdPrintln("channel 81");
+        lcdRefresh();
+        for(i=0;i<60;i++){
+            len= nrf_rcv_pkt_time(30, sizeof(p), (uint8_t*)&p);
+            if (len==sizeof(p)){
+                if( a ) a = 0; else a = 1;
+                gpioSetValue (RB_LED2, a);
+                processPacket(&p);
+            }
         }
     }
     selected = 0;
@@ -266,7 +299,9 @@ uint8_t selectGame()
                 interval = games[selected].interval;
                 jitter = games[selected].jitter;
                 flags = games[selected].gameFlags;
+                gameTitle = games[selected].gameTitle;
                 nrf_config_set(&config);
+                lcdClear();
                 if( games[selected].gameFlags & FLAGS_MASS_GAME )
                     return 1;
                 else
@@ -278,6 +313,7 @@ uint8_t selectGame()
 void processNickRequest( struct nickrequest *nq)
 {
     struct packet p;
+    memset((void*)&p, 0, sizeof(p));
     p.len=sizeof(p); 
     p.protocol='G'; // Proto
     p.command='n';
@@ -294,13 +330,15 @@ void processPacket(struct packet *p)
    if ((p->len==32) && (p->protocol=='G') && (p->id == id || p->id == 0) ){   //check sanity, protocol, id
      if (p->command=='T'){
         struct packet ack;
-        ack.len=sizeof(p); 
+        memset((void*)&ack, 0, sizeof(ack));
+        ack.len=sizeof(ack); 
         ack.protocol='G';
         ack.command='a';
         ack.id= id;
         ack.ctr= p->ctr;
         ack.c.ack.flags = 0;
-        nrf_snd_pkt_crc(sizeof(ack),(uint8_t*)&ack);
+        if( p->id )
+            nrf_snd_pkt_crc(sizeof(ack),(uint8_t*)&ack);
         processText(&(p->c.text));
      } 
      else if (p->command=='N'){
@@ -315,8 +353,17 @@ void processPacket(struct packet *p)
 void processAnnounce(struct announce *a)
 {
     if( gamecount < sizeof(games)/sizeof(games[0]) ){
-        games[gamecount] = *a;
-        gamecount++;
+        int repeat=0;
+        int i;
+        for (i=0; i<gamecount; i++){
+          if (a->gameId == games[i].gameId){
+            repeat=1;
+          }
+        }
+        if (repeat!=1){
+          games[gamecount] = *a;
+          gamecount++;
+        }
     }
 }
 
@@ -335,6 +382,7 @@ void processText(struct text *t)
 void sendButton(uint8_t button)
 {
     struct packet p;
+    memset((void*)&p, 0, sizeof(p));
     p.len=sizeof(p); 
     p.protocol='G'; // Proto
     p.command='B';
