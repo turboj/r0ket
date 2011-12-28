@@ -117,8 +117,10 @@ void ram(void) {
 
 	GPIO_GPIO3IE &= ~1; // disable GPIO IRQ
 	NVIC_DisableIRQ(EINT3_IRQn);
+	GPIO_GPIO3IC |= (0x01); // ACK BUSINT
 	// restore VTOR
 	SCB->VTOR = 0;
+	__asm volatile (" DMB ");
 }
 
 void ExtInt3_Handler() {
