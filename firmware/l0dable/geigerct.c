@@ -402,6 +402,7 @@ static uint8_t mainloop() {
 			} else
 				lcdPrintln("Battery low");
 		} else lcdPrintln(" ");
+		getGeigerMeshVal();
 		// remember: We have a 10ms Timer counter
 		if ((minuteTime + 60 * 100) < _timectr) {
 			// dumb algo: Just use last 60 seconds count
@@ -410,7 +411,7 @@ static uint8_t mainloop() {
 			oldCount = IntCtr;
 			transmitGeigerMeshVal(perMin,minuteTime / (100));
 		}
-		getGeigerMeshVal();
+
 		lcdRefresh();
 		delayms_queue_plus(42, 0);
 		button = getInputRaw();
