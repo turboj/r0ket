@@ -22,6 +22,7 @@ OBJS += config.o
 OBJS += itoa.o
 OBJS += stringin.o
 OBJS += simpletime.o
+OBJS += geigerint.o
 
 LIBNAME=basic
 

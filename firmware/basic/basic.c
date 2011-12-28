@@ -105,7 +105,7 @@ void rbInit() {
 void interrupt_undefined(void) {
 }
 
-void businterrupt(void)       WEAK_ALIAS(interrupt_undefined);
+//void businterrupt(void)       WEAK_ALIAS(interrupt_undefined);
 
 
 void PIOINT3_IRQHandler(void) {    
