@@ -177,6 +177,8 @@ static void getGeigerMeshVal()
 		lcdPrint("Mesh:");
 		lcdPrintln((char*)MO_BODY(mpkt->pkt));
 		//lcdPrintln("cpm");
+	} else {
+		mpkt->flags=MF_FREE;
 	}
 }
 
@@ -324,7 +326,7 @@ static void transmitGeigerMeshVal(uint32_t cpm,uint32_t time)
 {
 	if (perMin>0) {
 	MPKT * mpkt= meshGetMessage('g');
-	MO_TIME_set(mpkt->pkt,time);
+	MO_TIME_set(mpkt->pkt,(time & 0xFFFFF));
 	strcpy((char*)MO_BODY(mpkt->pkt),IntToStr(cpm,5,0));
 	strcpy((char*)(MO_BODY(mpkt->pkt)+strlen((char*)MO_BODY(mpkt->pkt)))," cpm");
 	lcdPrint("S:");

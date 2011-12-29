@@ -58,6 +58,7 @@ int mesh_sanity(uint8_t * pkt){
        MO_TYPE(pkt)!='E' && 
        MO_TYPE(pkt)!='F' && 
        MO_TYPE(pkt)!='G' && 
+       MO_TYPE(pkt)!='g' &&
        MO_TYPE(pkt)!='T'
             ){
         return 2;
@@ -221,6 +222,7 @@ uint8_t mesh_recvqloop_work(void){
             return 0;
         };
 
+
         // New mesh generation?
         if(MO_TYPE(buf)=='T'){
             if(mesh_gt(meshgen,MO_GEN(buf))){
@@ -235,6 +237,7 @@ uint8_t mesh_recvqloop_work(void){
         if(meshgen != MO_GEN(buf)){
             return 0;
         };
+
 
         // Set new time iff newer
         if(MO_TYPE(buf)=='T'){
@@ -300,6 +303,7 @@ uint8_t mesh_recvqloop_work(void){
                     meshmsg=1;
 #endif
 
+        if((MO_TYPE(buf)=='g')) meshmsg=1;
         memcpy(mpkt->pkt,buf,MESHPKTSIZE);
         mpkt->flags=MF_USED;
 
