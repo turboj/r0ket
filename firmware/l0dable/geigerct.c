@@ -71,14 +71,7 @@ typedef struct {
 #define LED_ON	GPIO_GPIO1DATA |= (1 << 7)
 #define LED_OFF GPIO_GPIO1DATA &= ~(1 << 7)
 
-uint32_t VectorTableInRAM[73]  __attribute__ ((aligned(512)))={1234}; // VTOR needs 1024 Byte alignment, see UM10375.PDF
-																	  // set to 512 to resolve a Linker Bug
 
-void (*orig_handler_extint3)(void)__attribute__ ((aligned))=(void*)0x000123;  // original EINT3 handler
-
-uint32_t volatile IntCtr __attribute__ ((aligned))=1;
-
-void ExtInt3_Handler();
 
 // Remember: ram() must be the first function, place all other code AFTER
 // because the Implementer seem not to know how to use section attributes
@@ -97,11 +90,6 @@ void ram(void) {
 	intro(3);
 
 	// populate my Vector table
-	memcpy(VectorTableInRAM, 0, sizeof(VectorTableInRAM));
-	orig_handler_extint3 = (void*) VectorTableInRAM[EINT3_IRQn + 16];
-	VectorTableInRAM[EINT3_IRQn + 16] = (uint32_t) &ExtInt3_Handler;
-	// HACK: use RAM vector table to implement own External IRQ handler
-	SCB->VTOR = (uint32_t) &VectorTableInRAM[0];
 	//  add DMB() here, as VTOR updates are NOT effective immediately
 	//
 	GPIO_GPIO3IEV |= 1;
@@ -111,7 +99,7 @@ void ram(void) {
 	GPIO_GPIO0DATA &= ~1;
 	IOCON_PIO3_0 = (1 << 3) | (1 << 5); // Pull DOWN not Up, Hyst on
 	NVIC_EnableIRQ(EINT3_IRQn);
-	IntCtr = 0;
+	//IntCtr = 0;
 	LEDs = 0;
 	mainloop();
 
@@ -119,23 +107,6 @@ void ram(void) {
 	NVIC_DisableIRQ(EINT3_IRQn);
 	GPIO_GPIO3IC |= (0x01); // ACK BUSINT
 	// restore VTOR
-	SCB->VTOR = 0;
-	__asm volatile (" DMB ");
-}
-
-void ExtInt3_Handler() {
-	if (GPIO_GPIO3RIS & 0x01) {
-		GPIO_GPIO3IC |= (0x01); // ACK BUSINT
-
-
-
-//		IOCON_PIO1_11 = 0;
-		LED_ON;
-//		GPIO_GPIO1DATA |= (1 << 11);
-		IntCtr++;
-	} else {
-		orig_handler_extint3();
-	}
 }
 
 /**
@@ -363,7 +334,7 @@ static void transmitGeigerMeshVal(uint32_t cpm,uint32_t time)
 
 
 static uint8_t mainloop() {
-	uint32_t volatile oldCount = IntCtr;
+	uint32_t volatile oldCount = BusIntCtr;
 	perMin = 0; // counts in last 60 s
 	uint32_t minuteTime = _timectr;
 	startTime = minuteTime;
@@ -380,7 +351,7 @@ static uint8_t mainloop() {
 		}
 		lcdPrintln("");
 		lcdPrint(" ");
-		lcdPrintInt(IntCtr);
+		lcdPrintInt(BusIntCtr);
 		lcdPrint(" in ");
 		lcdPrintInt((_timectr - startTime) / 100);
 		lcdPrintln("s");
@@ -408,9 +379,9 @@ static uint8_t mainloop() {
 		// remember: We have a 10ms Timer counter
 		if ((minuteTime + 60 * 100) < _timectr) {
 			// dumb algo: Just use last 60 seconds count
-			perMin = IntCtr - oldCount;
+			perMin = BusIntCtr - oldCount;
 			minuteTime = _timectr;
-			oldCount = IntCtr;
+			oldCount = BusIntCtr;
 			transmitGeigerMeshVal(perMin,minuteTime / (100));
 		}
 
@@ -432,7 +403,7 @@ void usbHIDGetInReport (uint8_t src[], uint32_t length)
 
   out.perMin=perMin;
   out.totalSec=(_timectr-startTime)/100;
-  out.totalCount=IntCtr;
+  out.totalCount=BusIntCtr;
   out.nanoSievertPerH=nanoSievertPerH(perMin);
 
   memcpy(src,&out,sizeof(out));
