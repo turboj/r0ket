@@ -194,7 +194,7 @@ void usbHIDInit (void)
   HidDevInfo.StrDescPtr = (uint32_t)USB_HIDStringDescriptor1[0];
   HidDevInfo.InReportCount = 0;//sizeof(usbhid_out_t);
   HidDevInfo.OutReportCount = sizeof(usbhid_out_t);
-  HidDevInfo.SampleInterval = 0x20;
+  HidDevInfo.SampleInterval = 0x1;
   HidDevInfo.InReport = usbHIDGetInReport;
   HidDevInfo.OutReport = usbHIDSetOutReport;
 
