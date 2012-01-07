@@ -191,7 +191,7 @@ void usbHIDInit (void)
   HidDevInfo.idVendor = USB_VENDOR_ID;
   HidDevInfo.idProduct = USB_PROD_ID;
   HidDevInfo.bcdDevice = USB_DEVICE;
-  HidDevInfo.StrDescPtr = (uint32_t)USB_HIDStringDescriptor1[0];
+  HidDevInfo.StrDescPtr = (uint32_t)&USB_HIDStringDescriptor1[0];
   HidDevInfo.InReportCount = sizeof(usbhid_out_t);
   HidDevInfo.OutReportCount = sizeof(usbhid_out_t);
   HidDevInfo.SampleInterval = 0x1;
