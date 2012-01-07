@@ -55,7 +55,7 @@ typedef struct usbhid_out_s {
 	uint16_t offset;
 	uint8_t count;
 	uint8_t flags;
-	uint8_t data[60];
+	uint8_t data[58];
 } usbhid_out_t;
 
 
@@ -192,7 +192,7 @@ void usbHIDInit (void)
   HidDevInfo.idProduct = USB_PROD_ID;
   HidDevInfo.bcdDevice = USB_DEVICE;
   HidDevInfo.StrDescPtr = (uint32_t)USB_HIDStringDescriptor1[0];
-  HidDevInfo.InReportCount = 0;//sizeof(usbhid_out_t);
+  HidDevInfo.InReportCount = sizeof(usbhid_out_t);
   HidDevInfo.OutReportCount = sizeof(usbhid_out_t);
   HidDevInfo.SampleInterval = 0x1;
   HidDevInfo.InReport = usbHIDGetInReport;
