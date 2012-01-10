@@ -357,6 +357,7 @@ static void transmitGeigerMeshVal(uint32_t cpm,uint32_t time)
 
 static uint8_t mainloop() {
 	uint32_t volatile oldCount = BusIntCtr;
+	uint32_t loopCount=BusIntCtr;
 	perMin = 0; // counts in last 60 s
 	uint32_t minuteTime = _timectr;
 	startTime = minuteTime;
@@ -364,9 +365,29 @@ static uint8_t mainloop() {
 	//usbHIDInit();
 	while (1) {
 		LED_OFF;
+		if (loopCount != BusIntCtr) {
+			loopCount=BusIntCtr;
+			IOCON_PIO1_11 = IOCON_PIO1_11_FUNC_GPIO;
+			gpioSetDir(RB_LED3,gpioDirection_Output ) ;
+			gpioSetValue(RB_LED3, 1);
+			if (!GLOBAL(positionleds) ) {
+				gpioSetValue(RB_LED2,1);
+				gpioSetValue(RB_LED0,1);
+			}
+		} else {
+			if (gpioGetValue(RB_PWR_CHRG) || !GLOBALchargeled) {
+				gpioSetDir(RB_LED3,gpioDirection_Input ); // only when not charging..
+				}
+				if (!GLOBAL(positionleds) ) {
+					gpioSetValue(RB_LED0,0);
+					gpioSetValue(RB_LED2,0);
+				}
+			}
+
 		lcdClear();
 		//lcdPrintln("   Geiger");
 		//lcdPrintln("   Counter");
+
 
 		memcpy(&lcdBuffer[RESX*RESY_B-sizeof(Header_Invers)],Header_Invers,sizeof(Header_Invers));
 		lcdPrintln("");
@@ -410,13 +431,13 @@ static uint8_t mainloop() {
 			oldCount = BusIntCtr;
 			transmitGeigerMeshVal(perMin,minuteTime / (100));
 		}
-
 		lcdRefresh();
 		delayms_queue_plus(42, 0);
 		button = getInputRaw();
 		if (button != BTN_NONE) {
 			break;
 		}
+
 	}
 	//usbHidDisconnect();
 	return button;
