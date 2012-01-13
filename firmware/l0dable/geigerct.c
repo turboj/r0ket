@@ -423,7 +423,7 @@ static uint8_t mainloop() {
 		} else lcdPrintln(" ");
 		getGeigerMeshVal();
 		// remember: We have a 10ms Timer counter
-		if ((minuteTime + 60 * 100) < _timectr) {
+		if ((minuteTime + 60 * 100) <= _timectr) {
 			// dumb algo: Just use last 60 seconds count
 			perMin = BusIntCtr - oldCount;
 			minuteTime = _timectr;
