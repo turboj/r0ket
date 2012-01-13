@@ -112,12 +112,12 @@ void ram(void) {
 	// populate my Vector table
 	//  add DMB() here, as VTOR updates are NOT effective immediately
 	//
+
+	GPIO_GPIO3DIR &= ~1;
+	IOCON_PIO3_0 = (1 << 3) | (1 << 5); // Pull DOWN not Up, Hyst on
+	GPIO_GPIO3IS &= ~1;
 	GPIO_GPIO3IEV |= 1;
 	GPIO_GPIO3IE |= 1;
-	GPIO_GPIO3DIR &= ~1;
-	GPIO_GPIO3IS &= ~1;
-	GPIO_GPIO0DATA &= ~1;
-	IOCON_PIO3_0 = (1 << 3) | (1 << 5); // Pull DOWN not Up, Hyst on
 	NVIC_EnableIRQ(EINT3_IRQn);
 	//IntCtr = 0;
 	LEDs = 0;
@@ -367,6 +367,7 @@ static uint8_t mainloop() {
 		LED_OFF;
 		if (loopCount != BusIntCtr) {
 			loopCount=BusIntCtr;
+			LED_ON;
 			IOCON_PIO1_11 = IOCON_PIO1_11_FUNC_GPIO;
 			gpioSetDir(RB_LED3,gpioDirection_Output ) ;
 			gpioSetValue(RB_LED3, 1);
