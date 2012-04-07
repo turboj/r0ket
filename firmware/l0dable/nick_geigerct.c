@@ -65,8 +65,12 @@ typedef struct {
 #define SCB_BASE            (SCS_BASE +  0x0D00UL)                    /*!< System Control Block Base Address */
 #define SCB                 ((SCB_Type *)           SCB_BASE)         /*!< SCB configuration struct          */
 
-#define MIN_SAFE_VOLTAGE 3650
-#define CRIT_VOLTAGE 3550
+
+// taken from voltage.c
+#define GOOD_VOLTAGE	4120   // 75%
+#define HALF_VOLTAGE	4000  // 50%
+#define MIN_SAFE_VOLTAGE 3650 // 25 %
+#define CRIT_VOLTAGE 3550   // 0%
 
 #define LED_ON	GPIO_GPIO1DATA |= (1 << 7)
 #define LED_OFF GPIO_GPIO1DATA &= ~(1 << 7)
@@ -356,6 +360,10 @@ static void transmitGeigerMeshVal(uint32_t cpm,uint32_t time)
 }
 
 
+// voltages:
+
+
+
 static uint8_t mainloop() {
 	uint32_t volatile oldCount = BusIntCtr;
 	uint32_t loopCount=BusIntCtr;
@@ -418,20 +426,32 @@ static uint8_t mainloop() {
 			lcdPrintln(" uSv/h");
 
 		}
-		if (GetVoltage() < MIN_SAFE_VOLTAGE) {
-			if (GetVoltage() < CRIT_VOLTAGE) {
-				lcdPrintln("Battery CRIT!");
-			} else
-				lcdPrintln("Battery low");
-		} else lcdPrintln(" ");
-		getGeigerMeshVal();
+		//getGeigerMeshVal();
+		lcdPrintln("");
+		{
+			uint32_t voltage=GetVoltage();
+			if (voltage >= GOOD_VOLTAGE) {
+				lcdPrintln("Bat: [++++] ");
+			} else if (voltage >= HALF_VOLTAGE) {
+				lcdPrintln("Bat: [ooo ] ");
+			} else if (voltage >= MIN_SAFE_VOLTAGE) {
+				lcdPrintln("Bat: [==  ]  ");
+			} else if (voltage >= CRIT_VOLTAGE) {
+				lcdPrintln("Bat: [-   ]  L");
+			} else {
+				lcdPrintln("Battery: CRIT!");
+			}
+
+
+		}
+
 		// remember: We have a 10ms Timer counter
 		if ((minuteTime + 60 * 100) <= _timectr) {
 			// dumb algo: Just use last 60 seconds count
 			perMin = BusIntCtr - oldCount;
 			minuteTime = _timectr;
 			oldCount = BusIntCtr;
-			transmitGeigerMeshVal(perMin,minuteTime / (100));
+			//transmitGeigerMeshVal(perMin,minuteTime / (100));
 		}
 		lcdRefresh();
 		delayms_queue_plus(42, 0);
