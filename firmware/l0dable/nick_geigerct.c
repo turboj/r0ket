@@ -428,7 +428,7 @@ static uint8_t mainloop() {
 		}
 		//getGeigerMeshVal();
 		lcdPrintln("");
-		{
+		if (gpioGetValue(RB_PWR_CHRG)){
 			uint32_t voltage=GetVoltage();
 			if (voltage >= GOOD_VOLTAGE) {
 				lcdPrintln("Bat: [++++] ");
@@ -437,14 +437,13 @@ static uint8_t mainloop() {
 			} else if (voltage >= MIN_SAFE_VOLTAGE) {
 				lcdPrintln("Bat: [==  ]  ");
 			} else if (voltage >= CRIT_VOLTAGE) {
-				lcdPrintln("Bat: [-   ]  L");
+				lcdPrintln("Bat: [-   ] L");
 			} else {
 				lcdPrintln("Battery: CRIT!");
 			}
-
-
+		} else {
+			    lcdPrintln("Bat: Charging");
 		}
-
 		// remember: We have a 10ms Timer counter
 		if ((minuteTime + 60 * 100) <= _timectr) {
 			// dumb algo: Just use last 60 seconds count
