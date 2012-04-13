@@ -12,7 +12,12 @@ use r0ket;
 
 $|=1;
 
-r0ket::r0ket_init();
+my $ser;
+if($ARGV[0] eq "-d"){
+    shift;
+    $ser=shift;
+};
+r0ket::r0ket_init($ser);
 
 # Default mesh settings.
 r0ket::set_txmac("ORBIT");
@@ -56,7 +61,7 @@ while(1){
             $p->{generation},
             $p->{release},
             strftime("%Y-%m-%d %H:%M:%S",gmtime $p->{time}),
-            $p->{time}-(time+3600),
+            $p->{time}-(time+$r0ket::timediff),
             r0ket::getbeacon($p->{beacon})
             );
     $win->refresh;
