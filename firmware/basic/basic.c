@@ -1,4 +1,3 @@
-
 #include "basic.h"
 #include "core/gpio/gpio.h"
 #include "lcd/backlight.c"
